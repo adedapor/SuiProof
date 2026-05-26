@@ -1159,55 +1159,54 @@ async function sealDocument() {
   setProgress('step-upload', 'active');
   await delay(300);
 
-  // Step 2: upload to Walrus
+  // Step 2: upload proof metadata to Walrus (no file content — just the record)
   const sealedAt = new Date().toISOString();
   const contentType = currentMode === 'file' ? (selectedFile?.type || 'application/octet-stream') : 'text/plain';
   const sizeBytes = buffer.byteLength;
 
-  let payload;
-  if (currentMode === 'text') {
-    payload = JSON.stringify({
-      title,
-      hash,
-      content: document.getElementById('paste-text').value.trim(),
-      sealedAt,
-      contentType,
-    });
-  } else {
-    // For files, encode as base64 in JSON
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
-    payload = JSON.stringify({
-      title,
-      hash,
-      content: base64,
-      sealedAt,
-      contentType,
-      encoding: 'base64',
-      filename: selectedFile.name,
-    });
-  }
+  const payload = JSON.stringify({
+    title,
+    hash,
+    sealedAt,
+    contentType,
+    size: sizeBytes,
+    filename: currentMode === 'file' ? selectedFile.name : undefined,
+    v: 1,
+  });
 
   let blobId = null;
   let fromFallback = false;
 
-  try {
-    const resp = await fetch('https://walrus-mainnet-publisher-1.staketab.org/v1/blobs?epochs=5', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: payload,
-    });
+  const WALRUS_PUBLISHERS = [
+    'https://walrus-mainnet-publisher-1.staketab.org/v1/blobs?epochs=5',
+    'https://walrus-mainnet-publisher.nodes.guru/v1/blobs?epochs=5',
+  ];
 
-    if (!resp.ok) throw new Error('Walrus returned ' + resp.status);
+  for (const endpoint of WALRUS_PUBLISHERS) {
+    try {
+      const resp = await fetch(endpoint, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload,
+        signal: AbortSignal.timeout(15000),
+      });
 
-    const data = await resp.json();
-    blobId =
-      data?.newlyCreated?.blobObject?.blobId ||
-      data?.alreadyCertified?.blobId ||
-      null;
+      if (!resp.ok) throw new Error('Walrus returned ' + resp.status);
 
-    if (!blobId) throw new Error('No blob ID in response');
-  } catch (e) {
-    // Fallback
+      const data = await resp.json();
+      blobId =
+        data?.newlyCreated?.blobObject?.blobId ||
+        data?.alreadyCertified?.blobId ||
+        null;
+      if (blobId) break; // success — stop trying endpoints
+      throw new Error('No blob ID in response');
+    } catch (e) {
+      // try next endpoint
+    }
+  }
+
+  if (!blobId) {
+    // All endpoints failed — generate local fallback ID
     blobId = 'walrus_' + hash.slice(0, 48);
     fromFallback = true;
   }
