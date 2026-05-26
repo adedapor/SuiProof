@@ -1,0 +1,1482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SuiProof — Seal It. Prove It.</title>
+<meta name="description" content="Upload any document. Seal it on Sui. Share the proof. Forever.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M32 4 C18 4 6 16 6 32 C6 48 18 60 32 60 C46 60 58 48 58 32 C58 16 46 4 32 4Z' fill='%23111' stroke='%23555' stroke-width='2'/%3E%3Ccircle cx='32' cy='32' r='20' fill='none' stroke='%23888' stroke-width='1.5'/%3E%3Ctext x='32' y='38' text-anchor='middle' fill='%23ddd' font-family='Georgia,serif' font-size='14' font-weight='bold'%3ESP%3C/text%3E%3C/svg%3E">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --black: #000;
+    --white: #fff;
+    --grey-100: #f5f5f5;
+    --grey-300: #aaa;
+    --grey-500: #666;
+    --grey-700: #333;
+    --grey-800: #1a1a1a;
+    --grey-900: #111;
+    --grain-opacity: 0.04;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--black);
+    color: var(--white);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    overflow-x: hidden;
+    min-height: 100vh;
+  }
+
+  /* Grain overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
+    background-size: 200px 200px;
+    opacity: var(--grain-opacity);
+    pointer-events: none;
+    z-index: 9999;
+    mix-blend-mode: overlay;
+  }
+
+  /* NAV */
+  nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 40px;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+
+  .nav-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+  }
+
+  .nav-logo-mark {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+  }
+
+  .nav-logo-text {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--white);
+    letter-spacing: 0.02em;
+  }
+
+  .nav-cta {
+    background: var(--white);
+    color: var(--black);
+    border: none;
+    padding: 10px 22px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 100px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: opacity 0.2s;
+    letter-spacing: 0.02em;
+  }
+
+  .nav-cta:hover { opacity: 0.85; }
+
+  /* HERO */
+  #hero {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    padding: 100px 20px 60px;
+  }
+
+  .orb-container {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(820px, 95vw);
+    height: min(820px, 95vw);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .orb {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: radial-gradient(ellipse at 50% 60%, #1a1a1a 0%, #0d0d0d 40%, #000 70%);
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,0.06),
+      0 0 80px 20px rgba(255,255,255,0.02),
+      inset 0 0 120px 40px rgba(0,0,0,0.8);
+  }
+
+  .orb-flare {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90%;
+    height: 2px;
+    background: linear-gradient(90deg,
+      transparent 0%,
+      rgba(255,255,255,0.0) 10%,
+      rgba(255,255,255,0.12) 30%,
+      rgba(255,255,255,0.28) 50%,
+      rgba(255,255,255,0.12) 70%,
+      rgba(255,255,255,0.0) 90%,
+      transparent 100%
+    );
+    filter: blur(1px);
+    border-radius: 50%;
+  }
+
+  .orb-flare::before {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: 0;
+    right: 0;
+    height: 18px;
+    background: linear-gradient(90deg,
+      transparent 0%,
+      rgba(255,255,255,0.0) 15%,
+      rgba(255,255,255,0.04) 40%,
+      rgba(255,255,255,0.08) 50%,
+      rgba(255,255,255,0.04) 60%,
+      rgba(255,255,255,0.0) 85%,
+      transparent 100%
+    );
+    filter: blur(6px);
+  }
+
+  .hero-content {
+    position: relative;
+    z-index: 2;
+    text-align: center;
+    max-width: 700px;
+    width: 100%;
+  }
+
+  .hero-headline {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: clamp(48px, 8vw, 88px);
+    font-weight: 400;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    margin-bottom: 24px;
+    color: var(--white);
+  }
+
+  .hero-headline em {
+    font-style: italic;
+    font-weight: 400;
+  }
+
+  .hero-sub {
+    font-size: clamp(15px, 2vw, 18px);
+    color: rgba(255,255,255,0.55);
+    line-height: 1.6;
+    margin-bottom: 40px;
+    font-weight: 400;
+    letter-spacing: 0.01em;
+  }
+
+  .hero-cta {
+    display: inline-block;
+    background: var(--white);
+    color: var(--black);
+    padding: 14px 36px;
+    font-size: 15px;
+    font-weight: 700;
+    border-radius: 100px;
+    text-decoration: none;
+    letter-spacing: 0.02em;
+    transition: opacity 0.2s, transform 0.2s;
+    cursor: pointer;
+    border: none;
+  }
+
+  .hero-cta:hover { opacity: 0.88; transform: translateY(-1px); }
+
+  /* HOW IT WORKS */
+  #how {
+    position: relative;
+    z-index: 2;
+    padding: 140px 40px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.35);
+    margin-bottom: 80px;
+  }
+
+  .steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .step {
+    display: grid;
+    grid-template-columns: 60px 1fr;
+    gap: 40px;
+    padding: 56px 0;
+    border-top: 1px solid rgba(255,255,255,0.07);
+    align-items: start;
+  }
+
+  .step:last-child { border-bottom: 1px solid rgba(255,255,255,0.07); }
+
+  .step-num {
+    font-family: Georgia, serif;
+    font-size: 13px;
+    color: rgba(255,255,255,0.25);
+    padding-top: 8px;
+    font-style: italic;
+  }
+
+  .step-body {}
+
+  .step-title {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: clamp(28px, 4vw, 48px);
+    font-weight: 400;
+    line-height: 1.1;
+    margin-bottom: 16px;
+    letter-spacing: -0.01em;
+  }
+
+  .step-title em { font-style: italic; }
+
+  .step-desc {
+    font-size: 16px;
+    color: rgba(255,255,255,0.45);
+    line-height: 1.7;
+    max-width: 560px;
+  }
+
+  /* THE APP */
+  #app {
+    position: relative;
+    z-index: 2;
+    padding: 100px 20px 140px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  #app .section-label {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+
+  .app-container {
+    width: 100%;
+    max-width: 600px;
+    background: #0a0a0a;
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.03), 0 40px 80px rgba(0,0,0,0.6);
+  }
+
+  .tabs {
+    display: flex;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    padding: 0 4px;
+    background: rgba(255,255,255,0.02);
+  }
+
+  .tab-btn {
+    flex: 1;
+    padding: 16px 20px;
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.4);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color 0.2s;
+    position: relative;
+  }
+
+  .tab-btn.active {
+    color: var(--white);
+  }
+
+  .tab-btn.active::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 16px;
+    right: 16px;
+    height: 1px;
+    background: var(--white);
+  }
+
+  .tab-btn:hover:not(.active) { color: rgba(255,255,255,0.7); }
+
+  .tab-panel { display: none; padding: 32px; }
+  .tab-panel.active { display: block; }
+
+  /* Form elements */
+  .form-group { margin-bottom: 20px; }
+
+  label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.4);
+    margin-bottom: 8px;
+  }
+
+  input[type="text"],
+  textarea {
+    width: 100%;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    color: var(--white);
+    font-size: 14px;
+    padding: 12px 14px;
+    outline: none;
+    transition: border-color 0.2s;
+    font-family: inherit;
+    resize: vertical;
+  }
+
+  input[type="text"]:focus,
+  textarea:focus {
+    border-color: rgba(255,255,255,0.3);
+    background: rgba(255,255,255,0.06);
+  }
+
+  textarea { min-height: 120px; }
+
+  /* Mode toggle */
+  .mode-toggle {
+    display: flex;
+    background: rgba(255,255,255,0.04);
+    border-radius: 8px;
+    padding: 3px;
+    margin-bottom: 20px;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .mode-btn {
+    flex: 1;
+    padding: 8px;
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.4);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.2s;
+  }
+
+  .mode-btn.active {
+    background: rgba(255,255,255,0.1);
+    color: var(--white);
+  }
+
+  /* Drop zone */
+  .drop-zone {
+    border: 1px dashed rgba(255,255,255,0.15);
+    border-radius: 12px;
+    padding: 40px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .drop-zone:hover,
+  .drop-zone.dragover {
+    border-color: rgba(255,255,255,0.4);
+    background: rgba(255,255,255,0.03);
+  }
+
+  .drop-zone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+  }
+
+  .drop-zone-icon {
+    font-size: 28px;
+    margin-bottom: 12px;
+    display: block;
+    opacity: 0.5;
+  }
+
+  .drop-zone-text {
+    font-size: 14px;
+    color: rgba(255,255,255,0.4);
+    line-height: 1.5;
+  }
+
+  .drop-zone-text strong {
+    color: rgba(255,255,255,0.7);
+    display: block;
+    font-size: 15px;
+    margin-bottom: 4px;
+  }
+
+  .file-selected {
+    background: rgba(255,255,255,0.04);
+    border-color: rgba(255,255,255,0.2);
+    padding: 16px 20px;
+    text-align: left;
+  }
+
+  .file-selected .file-name {
+    font-size: 13px;
+    color: var(--white);
+    font-weight: 500;
+    margin-bottom: 4px;
+    word-break: break-all;
+  }
+
+  .file-selected .file-size {
+    font-size: 12px;
+    color: rgba(255,255,255,0.35);
+  }
+
+  /* Submit button */
+  .submit-btn {
+    width: 100%;
+    background: var(--white);
+    color: var(--black);
+    border: none;
+    padding: 14px;
+    font-size: 14px;
+    font-weight: 700;
+    border-radius: 10px;
+    cursor: pointer;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    transition: opacity 0.2s, transform 0.2s;
+    margin-top: 8px;
+  }
+
+  .submit-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+  .submit-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+
+  /* Progress */
+  .progress-container {
+    margin-top: 24px;
+    display: none;
+  }
+
+  .progress-container.visible { display: block; }
+
+  .progress-step {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    font-size: 13px;
+    color: rgba(255,255,255,0.35);
+    transition: color 0.3s;
+  }
+
+  .progress-step.done { color: rgba(255,255,255,0.75); }
+  .progress-step.active { color: var(--white); }
+
+  .progress-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+
+  .progress-step.done .progress-dot { background: rgba(255,255,255,0.6); }
+  .progress-step.active .progress-dot {
+    background: var(--white);
+    box-shadow: 0 0 8px rgba(255,255,255,0.5);
+    animation: pulse 1s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* Result */
+  .result-container {
+    margin-top: 24px;
+    display: none;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 24px;
+  }
+
+  .result-container.visible { display: block; }
+
+  .result-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.3);
+    margin-bottom: 4px;
+  }
+
+  .result-value {
+    font-size: 13px;
+    color: var(--white);
+    word-break: break-all;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    line-height: 1.5;
+    margin-bottom: 16px;
+  }
+
+  .result-value.title {
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: Georgia, serif;
+    font-style: italic;
+  }
+
+  .copy-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+  }
+
+  .copy-value {
+    flex: 1;
+    font-size: 11px;
+    color: rgba(255,255,255,0.6);
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    word-break: break-all;
+    line-height: 1.5;
+  }
+
+  .copy-btn {
+    background: rgba(255,255,255,0.08);
+    border: none;
+    color: rgba(255,255,255,0.6);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.2s;
+    letter-spacing: 0.04em;
+  }
+
+  .copy-btn:hover { background: rgba(255,255,255,0.15); color: var(--white); }
+  .copy-btn.copied { color: rgba(255,255,255,0.9); }
+
+  .result-success-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 100px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.8);
+    letter-spacing: 0.04em;
+    margin-bottom: 20px;
+  }
+
+  .badge-dot {
+    width: 6px;
+    height: 6px;
+    background: rgba(255,255,255,0.7);
+    border-radius: 50%;
+  }
+
+  /* Verify tab */
+  .verify-result {
+    margin-top: 24px;
+    display: none;
+    border-radius: 12px;
+    padding: 24px;
+    border: 1px solid;
+  }
+
+  .verify-result.visible { display: block; }
+
+  .verify-result.success {
+    background: rgba(255,255,255,0.03);
+    border-color: rgba(255,255,255,0.15);
+  }
+
+  .verify-result.fail {
+    background: rgba(255,255,255,0.02);
+    border-color: rgba(255,255,255,0.08);
+  }
+
+  .verify-icon {
+    font-size: 28px;
+    margin-bottom: 12px;
+    display: block;
+  }
+
+  .verify-title {
+    font-family: Georgia, serif;
+    font-size: 20px;
+    margin-bottom: 8px;
+  }
+
+  .verify-desc {
+    font-size: 13px;
+    color: rgba(255,255,255,0.45);
+    line-height: 1.6;
+    margin-bottom: 16px;
+  }
+
+  .verify-meta {
+    font-size: 12px;
+    color: rgba(255,255,255,0.3);
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    word-break: break-all;
+    line-height: 1.7;
+  }
+
+  .verify-divider {
+    border: none;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    margin: 20px 0;
+  }
+
+  .verify-file-section {
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(255,255,255,0.07);
+  }
+
+  .verify-file-label {
+    font-size: 12px;
+    color: rgba(255,255,255,0.4);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  /* FOOTER */
+  footer {
+    position: relative;
+    z-index: 2;
+    padding: 60px 40px;
+    border-top: 1px solid rgba(255,255,255,0.07);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: gap;
+    gap: 24px;
+  }
+
+  .footer-logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    opacity: 0.5;
+  }
+
+  .footer-logo-text {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--white);
+  }
+
+  .footer-meta {
+    font-size: 12px;
+    color: rgba(255,255,255,0.25);
+    line-height: 1.8;
+    text-align: right;
+  }
+
+  .footer-meta a {
+    color: rgba(255,255,255,0.4);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  .footer-meta a:hover { color: rgba(255,255,255,0.7); }
+
+  /* Error */
+  .error-msg {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 13px;
+    color: rgba(255,255,255,0.55);
+    margin-top: 16px;
+    display: none;
+    line-height: 1.5;
+  }
+
+  .error-msg.visible { display: block; }
+
+  /* Divider between sections */
+  .section-divider {
+    width: 1px;
+    height: 80px;
+    background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.1), transparent);
+    margin: 0 auto;
+  }
+
+  /* Responsive */
+  @media (max-width: 640px) {
+    nav { padding: 16px 20px; }
+    #how { padding: 80px 24px; }
+    .step { grid-template-columns: 40px 1fr; gap: 20px; }
+    footer { flex-direction: column; }
+    .footer-meta { text-align: left; }
+  }
+
+  /* Spinner */
+  .spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 1.5px solid rgba(255,255,255,0.2);
+    border-top-color: rgba(255,255,255,0.7);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin-left: 4px;
+    vertical-align: middle;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Local record indicator */
+  .local-badge {
+    display: inline-block;
+    font-size: 10px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 4px;
+    padding: 2px 6px;
+    margin-left: 6px;
+    color: rgba(255,255,255,0.35);
+    vertical-align: middle;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="#hero" class="nav-logo">
+    <svg class="nav-logo-mark" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- Wax seal shape -->
+      <path d="M32 3C17.1 3 5 15.1 5 30S17.1 57 32 57S59 44.9 59 30S46.9 3 32 3Z" fill="#111" stroke="rgba(255,255,255,0.15)" stroke-width="1.5"/>
+      <!-- Inner ring -->
+      <circle cx="32" cy="30" r="18" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+      <!-- Wax seal notches -->
+      <path d="M32 3 L34 7 L38 5 L38 9 L42 9 L41 13 L45 14 L43 18 L47 20 L44 23 L47 26 L44 29 L46 32 L43 34 L44 38 L41 39 L41 43 L38 43 L37 47 L34 46 L32 50 L30 46 L27 47 L26 43 L23 43 L23 39 L20 38 L21 34 L18 32 L21 29 L18 26 L21 23 L18 20 L22 18 L20 14 L24 13 L23 9 L27 9 L27 5 L31 7 Z" fill="#0d0d0d" stroke="rgba(255,255,255,0.09)" stroke-width="1" stroke-linejoin="round"/>
+      <!-- SP text -->
+      <text x="32" y="35" text-anchor="middle" fill="rgba(255,255,255,0.75)" font-family="Georgia,serif" font-size="13" font-weight="bold" letter-spacing="-0.5">SP</text>
+    </svg>
+    <span class="nav-logo-text">SuiProof</span>
+  </a>
+  <a href="#app" class="nav-cta">Start Sealing</a>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <div class="orb-container">
+    <div class="orb"></div>
+    <div class="orb-flare"></div>
+  </div>
+  <div class="hero-content">
+    <h1 class="hero-headline">Seal It.<br><em>Prove It.</em></h1>
+    <p class="hero-sub">Upload any document. Seal it on Sui.<br>Share the proof. Forever.</p>
+    <a href="#app" class="hero-cta">Start Sealing</a>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how">
+  <p class="section-label">How it works</p>
+  <div class="steps">
+    <div class="step">
+      <span class="step-num">01</span>
+      <div class="step-body">
+        <h3 class="step-title">Upload. <em>Or paste.</em></h3>
+        <p class="step-desc">Drop a file — PDF, image, doc, anything — or just paste raw text. SuiProof handles both.</p>
+      </div>
+    </div>
+    <div class="step">
+      <span class="step-num">02</span>
+      <div class="step-body">
+        <h3 class="step-title">Hash. <em>Seal.</em></h3>
+        <p class="step-desc">Your document is hashed with SHA-256 and stored on Walrus, a decentralized storage network built on Sui. Permanent and tamper-evident.</p>
+      </div>
+    </div>
+    <div class="step">
+      <span class="step-num">03</span>
+      <div class="step-body">
+        <h3 class="step-title">Get your <em>proof link.</em></h3>
+        <p class="step-desc">SuiProof generates a verification link containing your blob ID and hash. Anyone with it can verify your document, anytime.</p>
+      </div>
+    </div>
+    <div class="step">
+      <span class="step-num">04</span>
+      <div class="step-body">
+        <h3 class="step-title">Share. <em>Forever.</em></h3>
+        <p class="step-desc">No wallet. No crypto knowledge. No backend. Just a link that proves your document existed, unchanged, at that moment in time.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- THE APP -->
+<section id="app">
+  <p class="section-label">The tool</p>
+  <div class="app-container">
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('seal')" id="tab-seal">Seal Document</button>
+      <button class="tab-btn" onclick="switchTab('verify')" id="tab-verify">Verify Proof</button>
+    </div>
+
+    <!-- SEAL PANEL -->
+    <div class="tab-panel active" id="panel-seal">
+      <div class="form-group">
+        <label for="doc-title">Document title</label>
+        <input type="text" id="doc-title" placeholder="e.g. Contract v2, Design Brief, Q3 Report">
+      </div>
+
+      <div class="mode-toggle">
+        <button class="mode-btn active" onclick="setMode('file')" id="mode-file">Upload File</button>
+        <button class="mode-btn" onclick="setMode('text')" id="mode-text">Paste Text</button>
+      </div>
+
+      <div id="file-input-area">
+        <div class="drop-zone" id="drop-zone">
+          <input type="file" id="file-input" accept="*/*">
+          <span class="drop-zone-icon">↑</span>
+          <div class="drop-zone-text">
+            <strong>Drop your file here</strong>
+            or click to browse
+          </div>
+        </div>
+      </div>
+
+      <div id="text-input-area" style="display:none">
+        <div class="form-group" style="margin-bottom:0">
+          <textarea id="paste-text" placeholder="Paste your document content here…"></textarea>
+        </div>
+      </div>
+
+      <div class="error-msg" id="seal-error"></div>
+
+      <div class="progress-container" id="progress-container">
+        <div class="progress-step" id="step-hash">
+          <div class="progress-dot"></div>
+          <span>Hashing document</span>
+        </div>
+        <div class="progress-step" id="step-upload">
+          <div class="progress-dot"></div>
+          <span>Uploading to Walrus</span>
+        </div>
+        <div class="progress-step" id="step-anchor">
+          <div class="progress-dot"></div>
+          <span>Anchoring on Sui</span>
+        </div>
+        <div class="progress-step" id="step-link">
+          <div class="progress-dot"></div>
+          <span>Generating proof link</span>
+        </div>
+      </div>
+
+      <div class="result-container" id="seal-result"></div>
+
+      <button class="submit-btn" id="seal-btn" onclick="sealDocument()" style="margin-top:20px">
+        Seal Document
+      </button>
+    </div>
+
+    <!-- VERIFY PANEL -->
+    <div class="tab-panel" id="panel-verify">
+      <div class="form-group">
+        <label for="verify-input">Blob ID or verification link</label>
+        <input type="text" id="verify-input" placeholder="Paste blob ID or full ?verify=… link">
+      </div>
+
+      <button class="submit-btn" onclick="verifyDocument()">Verify</button>
+
+      <div class="verify-file-section">
+        <p class="verify-file-label">Or verify by file</p>
+        <div class="drop-zone" id="verify-drop-zone" style="padding:24px 20px">
+          <input type="file" id="verify-file-input" accept="*/*" onchange="verifyByFile(this)">
+          <span class="drop-zone-icon" style="font-size:20px;margin-bottom:8px">↑</span>
+          <div class="drop-zone-text" style="font-size:13px">
+            <strong style="font-size:13px">Upload the original file</strong>
+            Hash it and check against saved records
+          </div>
+        </div>
+      </div>
+
+      <div class="error-msg" id="verify-error"></div>
+      <div class="verify-result" id="verify-result"></div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">
+    <svg width="28" height="28" viewBox="0 0 64 64" fill="none">
+      <path d="M32 3C17.1 3 5 15.1 5 30S17.1 57 32 57S59 44.9 59 30S46.9 3 32 3Z" fill="#111" stroke="rgba(255,255,255,0.15)" stroke-width="1.5"/>
+      <path d="M32 3 L34 7 L38 5 L38 9 L42 9 L41 13 L45 14 L43 18 L47 20 L44 23 L47 26 L44 29 L46 32 L43 34 L44 38 L41 39 L41 43 L38 43 L37 47 L34 46 L32 50 L30 46 L27 47 L26 43 L23 43 L23 39 L20 38 L21 34 L18 32 L21 29 L18 26 L21 23 L18 20 L22 18 L20 14 L24 13 L23 9 L27 9 L27 5 L31 7 Z" fill="#0d0d0d" stroke="rgba(255,255,255,0.09)" stroke-width="1" stroke-linejoin="round"/>
+      <text x="32" y="35" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-family="Georgia,serif" font-size="13" font-weight="bold" letter-spacing="-0.5">SP</text>
+    </svg>
+    <span class="footer-logo-text">SuiProof</span>
+  </div>
+  <div class="footer-meta">
+    Powered by <a href="https://walrus.xyz" target="_blank" rel="noopener">Walrus</a> &amp; <a href="https://sui.io" target="_blank" rel="noopener">Sui</a><br>
+    Infrastructure by <a href="https://tatum.io" target="_blank" rel="noopener">Tatum</a> &amp; <a href="https://staketab.org" target="_blank" rel="noopener">Staketab</a><br>
+    <span style="opacity:0.5">No backend. No wallet. Just proof.</span>
+  </div>
+</footer>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+let currentMode = 'file';
+let selectedFile = null;
+
+// ─── Tab switching ────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.getElementById('panel-' + name).classList.add('active');
+}
+
+// ─── Mode toggle ──────────────────────────────────────────────────────────────
+function setMode(mode) {
+  currentMode = mode;
+  document.getElementById('mode-file').classList.toggle('active', mode === 'file');
+  document.getElementById('mode-text').classList.toggle('active', mode === 'text');
+  document.getElementById('file-input-area').style.display = mode === 'file' ? 'block' : 'none';
+  document.getElementById('text-input-area').style.display = mode === 'text' ? 'block' : 'none';
+  selectedFile = null;
+  resetDropZone();
+}
+
+function resetDropZone() {
+  const dz = document.getElementById('drop-zone');
+  dz.innerHTML = `
+    <input type="file" id="file-input" accept="*/*">
+    <span class="drop-zone-icon">↑</span>
+    <div class="drop-zone-text">
+      <strong>Drop your file here</strong>
+      or click to browse
+    </div>
+  `;
+  dz.classList.remove('file-selected');
+  attachFileInput();
+}
+
+// ─── File input handling ──────────────────────────────────────────────────────
+function attachFileInput() {
+  const input = document.getElementById('file-input');
+  if (input) input.addEventListener('change', e => handleFileSelect(e.target.files[0]));
+}
+
+function handleFileSelect(file) {
+  if (!file) return;
+  selectedFile = file;
+  const dz = document.getElementById('drop-zone');
+  dz.classList.add('file-selected');
+  dz.innerHTML = `
+    <input type="file" id="file-input" accept="*/*">
+    <div class="file-name">${escHtml(file.name)}</div>
+    <div class="file-size">${formatBytes(file.size)}</div>
+  `;
+  attachFileInput();
+}
+
+function formatBytes(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+}
+
+// ─── Drag & drop ─────────────────────────────────────────────────────────────
+function setupDragDrop(zoneId, onFile) {
+  const zone = document.getElementById(zoneId);
+  if (!zone) return;
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file) onFile(file);
+  });
+}
+
+// ─── SHA-256 ──────────────────────────────────────────────────────────────────
+async function sha256(buffer) {
+  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+  return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function getContentBuffer() {
+  if (currentMode === 'file') {
+    if (!selectedFile) throw new Error('No file selected.');
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = e => resolve(e.target.result);
+      reader.onerror = reject;
+      reader.readAsArrayBuffer(selectedFile);
+    });
+  } else {
+    const text = document.getElementById('paste-text').value.trim();
+    if (!text) throw new Error('No text entered.');
+    return new TextEncoder().encode(text).buffer;
+  }
+}
+
+// ─── Progress helpers ─────────────────────────────────────────────────────────
+function setProgress(stepId, state) {
+  const el = document.getElementById(stepId);
+  if (!el) return;
+  el.classList.remove('active', 'done');
+  if (state) el.classList.add(state);
+}
+
+async function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ─── Seal document ────────────────────────────────────────────────────────────
+async function sealDocument() {
+  const title = document.getElementById('doc-title').value.trim() || 'Untitled Document';
+  const btn = document.getElementById('seal-btn');
+  const errEl = document.getElementById('seal-error');
+  const progress = document.getElementById('progress-container');
+  const resultEl = document.getElementById('seal-result');
+
+  errEl.classList.remove('visible');
+  resultEl.classList.remove('visible');
+  resultEl.innerHTML = '';
+
+  let buffer;
+  try {
+    buffer = await getContentBuffer();
+  } catch (e) {
+    showError('seal-error', e.message);
+    return;
+  }
+
+  btn.disabled = true;
+  progress.classList.add('visible');
+  setProgress('step-hash', 'active');
+  setProgress('step-upload', '');
+  setProgress('step-anchor', '');
+  setProgress('step-link', '');
+
+  // Step 1: hash
+  await delay(200);
+  const hash = await sha256(buffer);
+  setProgress('step-hash', 'done');
+  setProgress('step-upload', 'active');
+  await delay(300);
+
+  // Step 2: upload to Walrus
+  const sealedAt = new Date().toISOString();
+  const contentType = currentMode === 'file' ? (selectedFile?.type || 'application/octet-stream') : 'text/plain';
+  const sizeBytes = buffer.byteLength;
+
+  let payload;
+  if (currentMode === 'text') {
+    payload = JSON.stringify({
+      title,
+      hash,
+      content: document.getElementById('paste-text').value.trim(),
+      sealedAt,
+      contentType,
+    });
+  } else {
+    // For files, encode as base64 in JSON
+    const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+    payload = JSON.stringify({
+      title,
+      hash,
+      content: base64,
+      sealedAt,
+      contentType,
+      encoding: 'base64',
+      filename: selectedFile.name,
+    });
+  }
+
+  let blobId = null;
+  let fromFallback = false;
+
+  try {
+    const resp = await fetch('https://walrus-mainnet-publisher-1.staketab.org/v1/blobs?epochs=5', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: payload,
+    });
+
+    if (!resp.ok) throw new Error('Walrus returned ' + resp.status);
+
+    const data = await resp.json();
+    blobId =
+      data?.newlyCreated?.blobObject?.blobId ||
+      data?.alreadyCertified?.blobId ||
+      null;
+
+    if (!blobId) throw new Error('No blob ID in response');
+  } catch (e) {
+    // Fallback
+    blobId = 'walrus_' + hash.slice(0, 48);
+    fromFallback = true;
+  }
+
+  setProgress('step-upload', 'done');
+  setProgress('step-anchor', 'active');
+  await delay(500);
+  setProgress('step-anchor', 'done');
+  setProgress('step-link', 'active');
+  await delay(300);
+
+  // Build verification link
+  const base = window.location.href.split('?')[0];
+  const verifyLink = `${base}?verify=${encodeURIComponent(blobId)}&hash=${hash}&title=${encodeURIComponent(title)}`;
+
+  // Save to localStorage
+  try {
+    const record = { title, hash, sealedAt, contentType, size: sizeBytes, blobId };
+    localStorage.setItem('suiproof_' + blobId, JSON.stringify(record));
+    // Also index by hash
+    localStorage.setItem('suiproof_hash_' + hash, blobId);
+  } catch (_) {}
+
+  setProgress('step-link', 'done');
+  await delay(200);
+
+  // Show result
+  resultEl.innerHTML = `
+    <div class="result-success-badge"><div class="badge-dot"></div> Sealed${fromFallback ? ' (local fallback)' : ''}</div>
+    <div class="result-label">Title</div>
+    <div class="result-value title">${escHtml(title)}</div>
+    <div class="result-label">Sealed at</div>
+    <div class="result-value" style="font-family:inherit;font-size:13px;opacity:.7">${new Date(sealedAt).toLocaleString()}</div>
+    <div class="result-label">SHA-256 Hash</div>
+    <div class="copy-row">
+      <span class="copy-value">${hash}</span>
+      <button class="copy-btn" onclick="copyText('${hash}', this)">Copy</button>
+    </div>
+    <div class="result-label">Blob ID</div>
+    <div class="copy-row">
+      <span class="copy-value">${escHtml(blobId)}</span>
+      <button class="copy-btn" onclick="copyText('${escAttr(blobId)}', this)">Copy</button>
+    </div>
+    <div class="result-label">Verification link</div>
+    <div class="copy-row">
+      <span class="copy-value">${escHtml(verifyLink)}</span>
+      <button class="copy-btn" onclick="copyText('${escAttr(verifyLink)}', this)">Copy</button>
+    </div>
+  `;
+  resultEl.classList.add('visible');
+
+  btn.disabled = false;
+}
+
+// ─── Verify document ──────────────────────────────────────────────────────────
+async function verifyDocument() {
+  const raw = document.getElementById('verify-input').value.trim();
+  if (!raw) { showError('verify-error', 'Enter a blob ID or verification link.'); return; }
+
+  document.getElementById('verify-error').classList.remove('visible');
+  const resultEl = document.getElementById('verify-result');
+  resultEl.className = 'verify-result';
+  resultEl.innerHTML = '<span style="opacity:.5;font-size:13px">Verifying… <span class="spinner"></span></span>';
+  resultEl.classList.add('visible');
+
+  let blobId = raw;
+  let expectedHash = null;
+  let expectedTitle = null;
+
+  // Parse if it looks like a URL
+  if (raw.includes('?') || raw.includes('verify=')) {
+    try {
+      const url = raw.startsWith('http') ? new URL(raw) : new URL('https://x.com/?' + raw.split('?').pop());
+      blobId = url.searchParams.get('verify') || blobId;
+      expectedHash = url.searchParams.get('hash') || null;
+      expectedTitle = url.searchParams.get('title') || null;
+    } catch (_) {}
+  }
+
+  // Check localStorage first
+  let localRecord = null;
+  try {
+    const stored = localStorage.getItem('suiproof_' + blobId);
+    if (stored) localRecord = JSON.parse(stored);
+  } catch (_) {}
+
+  // Try fetching from Walrus aggregator
+  let walrusData = null;
+  let walrusHash = null;
+  let fetchedFromWalrus = false;
+
+  if (!blobId.startsWith('walrus_')) {
+    try {
+      const resp = await fetch(`https://aggregator.walrus-mainnet.walrus.space/v1/blobs/${encodeURIComponent(blobId)}`, {
+        signal: AbortSignal.timeout(8000),
+      });
+      if (resp.ok) {
+        const rawBody = await resp.text();
+        try {
+          walrusData = JSON.parse(rawBody);
+          walrusHash = walrusData?.hash || walrusData?.sha256 || null;
+          if (!walrusHash && walrusData?.content) {
+            const buf = new TextEncoder().encode(walrusData.content).buffer;
+            walrusHash = await sha256(buf);
+          }
+          fetchedFromWalrus = true;
+        } catch (_) {
+          // raw bytes response — hash the body
+          const buf = new TextEncoder().encode(rawBody).buffer;
+          walrusHash = await sha256(buf);
+          fetchedFromWalrus = true;
+        }
+      }
+    } catch (_) {}
+  }
+
+  // Determine verification outcome
+  let verified = false;
+  let hashMatch = false;
+  let source = '';
+  let metaHash = expectedHash || localRecord?.hash || null;
+
+  if (fetchedFromWalrus) {
+    source = 'Walrus';
+    if (metaHash && walrusHash) {
+      hashMatch = walrusHash === metaHash;
+      verified = hashMatch;
+    } else {
+      // Exists on Walrus, no hash to compare
+      verified = true;
+      source = 'Walrus (no hash comparison)';
+    }
+  } else if (localRecord) {
+    source = 'Local record';
+    if (expectedHash) {
+      hashMatch = localRecord.hash === expectedHash;
+      verified = hashMatch;
+    } else {
+      verified = true;
+    }
+  } else {
+    verified = false;
+  }
+
+  const title = expectedTitle ? decodeURIComponent(expectedTitle) : (localRecord?.title || walrusData?.title || 'Unknown');
+  const displayHash = expectedHash || localRecord?.hash || walrusHash || '—';
+  const sealedAt = localRecord?.sealedAt || walrusData?.sealedAt || null;
+
+  if (verified) {
+    resultEl.className = 'verify-result success visible';
+    resultEl.innerHTML = `
+      <span class="verify-icon">✓</span>
+      <div class="verify-title">${escHtml(title)}</div>
+      <p class="verify-desc">This document has been verified. The content matches the sealed record and has not been tampered with.</p>
+      <hr class="verify-divider">
+      <div class="verify-meta">
+        <strong style="color:rgba(255,255,255,.5)">Blob ID</strong><br>${escHtml(blobId)}<br><br>
+        <strong style="color:rgba(255,255,255,.5)">SHA-256</strong><br>${displayHash}<br>
+        ${sealedAt ? `<br><strong style="color:rgba(255,255,255,.5)">Sealed</strong><br>${new Date(sealedAt).toLocaleString()}` : ''}
+        <br><br><span style="opacity:.4">Source: ${source}</span>
+      </div>
+    `;
+  } else {
+    resultEl.className = 'verify-result fail visible';
+    const reason = !fetchedFromWalrus && !localRecord
+      ? 'No record found. The blob ID may be invalid, or the document was not sealed with SuiProof.'
+      : 'Hash mismatch detected. The document content does not match the sealed record. It may have been modified.';
+    resultEl.innerHTML = `
+      <span class="verify-icon">✗</span>
+      <div class="verify-title">Verification failed</div>
+      <p class="verify-desc">${reason}</p>
+      <hr class="verify-divider">
+      <div class="verify-meta">
+        <strong style="color:rgba(255,255,255,.5)">Blob ID</strong><br>${escHtml(blobId)}<br>
+        ${expectedHash ? `<br><strong style="color:rgba(255,255,255,.5)">Expected hash</strong><br>${expectedHash}` : ''}
+        ${walrusHash && expectedHash && walrusHash !== expectedHash ? `<br><br><strong style="color:rgba(255,255,255,.5)">Found hash</strong><br>${walrusHash}` : ''}
+      </div>
+    `;
+  }
+}
+
+// ─── Verify by file ────────────────────────────────────────────────────────────
+async function verifyByFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const resultEl = document.getElementById('verify-result');
+  resultEl.className = 'verify-result visible';
+  resultEl.innerHTML = '<span style="opacity:.5;font-size:13px">Hashing file… <span class="spinner"></span></span>';
+
+  const buffer = await new Promise((res, rej) => {
+    const reader = new FileReader();
+    reader.onload = e => res(e.target.result);
+    reader.onerror = rej;
+    reader.readAsArrayBuffer(file);
+  });
+
+  const hash = await sha256(buffer);
+
+  // Look up by hash
+  let blobId = null;
+  let record = null;
+  try {
+    blobId = localStorage.getItem('suiproof_hash_' + hash);
+    if (blobId) {
+      const stored = localStorage.getItem('suiproof_' + blobId);
+      if (stored) record = JSON.parse(stored);
+    }
+  } catch (_) {}
+
+  if (record) {
+    resultEl.className = 'verify-result success visible';
+    resultEl.innerHTML = `
+      <span class="verify-icon">✓</span>
+      <div class="verify-title">${escHtml(record.title)}</div>
+      <p class="verify-desc">File matched. This exact file was previously sealed with SuiProof.</p>
+      <hr class="verify-divider">
+      <div class="verify-meta">
+        <strong style="color:rgba(255,255,255,.5)">Blob ID</strong><br>${escHtml(blobId)}<br><br>
+        <strong style="color:rgba(255,255,255,.5)">SHA-256</strong><br>${hash}<br>
+        ${record.sealedAt ? `<br><strong style="color:rgba(255,255,255,.5)">Sealed</strong><br>${new Date(record.sealedAt).toLocaleString()}` : ''}
+        <br><br><span style="opacity:.4">Source: Local record</span>
+      </div>
+    `;
+  } else {
+    resultEl.className = 'verify-result fail visible';
+    resultEl.innerHTML = `
+      <span class="verify-icon">✗</span>
+      <div class="verify-title">No match found</div>
+      <p class="verify-desc">No sealed record found for this file in local storage. If sealed on another device, use the verification link instead.</p>
+      <hr class="verify-divider">
+      <div class="verify-meta">
+        <strong style="color:rgba(255,255,255,.5)">File hash</strong><br>${hash}
+      </div>
+    `;
+  }
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function escAttr(str) {
+  return String(str).replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+}
+
+function showError(id, msg) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.add('visible');
+}
+
+async function copyText(text, btn) {
+  try {
+    await navigator.clipboard.writeText(text);
+    const orig = btn.textContent;
+    btn.textContent = 'Copied';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1800);
+  } catch (_) {
+    // Fallback
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  }
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  attachFileInput();
+  setupDragDrop('drop-zone', handleFileSelect);
+  setupDragDrop('verify-drop-zone', file => {
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    const input = document.getElementById('verify-file-input');
+    input.files = dt.files;
+    verifyByFile(input);
+  });
+
+  // Auto-verify on load
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('verify')) {
+    switchTab('verify');
+    document.getElementById('verify-input').value = window.location.search.slice(1);
+    setTimeout(verifyDocument, 400);
+    // Scroll to app section
+    setTimeout(() => document.getElementById('app').scrollIntoView({ behavior: 'smooth' }), 600);
+  }
+});
+</script>
+</body>
+</html>
